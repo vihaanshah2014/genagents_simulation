@@ -1,4 +1,4 @@
-# Template
+# Agent Template
 
 This is a base template for creating agents and multi-agent networks. You can check out other examples of agents and multi-agent networks at https://github.com/NapthaAI. 
 
