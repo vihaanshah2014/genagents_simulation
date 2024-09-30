@@ -4,7 +4,7 @@ from naptha_sdk.utils import get_logger, load_yaml
 
 logger = get_logger(__name__)
 
-def run(inputs, worker_nodes=None, orchestrator_node=None, flow_run=None, cfg=None):
+def run(inputs, *args, **kwargs):
     logger.info(f"Inputs: {inputs}")
     return None
 
