@@ -1,4 +1,6 @@
 from pydantic import BaseModel, Field
+from typing import Union
 
 class InputSchema(BaseModel):
-    prompt: str = Field(..., title="Prompt to be passed as input.")
+    func_name: str
+    func_input_data: Union[list, str]
