@@ -1,8 +1,11 @@
 #!/usr/bin/env python
+from dotenv import load_dotenv
 from naptha_sdk.schemas import AgentRunInput, OrchestratorRunInput, EnvironmentRunInput
 from naptha_sdk.utils import get_logger
 from module_template.schemas import InputSchema
 from typing import Union
+
+load_dotenv()
 
 logger = get_logger(__name__)
 
@@ -11,15 +14,15 @@ class BasicModule:
     def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput]):
         self.module_run = module_run
 
-    def func(self, inputs: InputSchema):
-        logger.info(f"Running module function: {inputs.func_name}")
-        return "Module function executed successfully"
+    def func(self, input_data):
+        logger.info(f"Running module function")
+        return input_data
 
 # Default entrypoint when the module is executed
 def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput]):
     basic_module = BasicModule(module_run)
     method = getattr(basic_module, module_run.inputs.func_name, None)
-    return method(module_run.inputs)
+    return method(module_run.inputs.func_input_data)
 
 if __name__ == "__main__":
     # For testing locally
@@ -28,10 +31,10 @@ if __name__ == "__main__":
 
     naptha = Naptha()
 
-    input_params = InputSchema(prompt="gm...")
-        
+    input_params = InputSchema(func_name="func", func_input_data="gm...")
+
     # Load Configs
-    agent_deployments = load_agent_deployments("module_template/configs/agent_deployments.json")
+    agent_deployments = load_agent_deployments("module_template/configs/agent_deployments.json", load_persona_data=False, load_persona_schema=False)
     # orchestrator_deployments = load_orchestrator_deployments("module_template/configs/orchestrator_deployments.json")
     # environment_deployments = load_environment_deployments("module_template/configs/environment_deployments.json")
 
@@ -55,4 +58,6 @@ if __name__ == "__main__":
     #     consumer_id=naptha.user.id,
     # )
 
-    run(agent_run)
+    response = run(agent_run)
+
+    print("Response: ", response)

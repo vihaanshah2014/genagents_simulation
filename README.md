@@ -1,8 +1,26 @@
 # Module Template
 
-This is a base template for creating agent, agent orchestrator, and environment modules. You can check out other examples of agent, orchestrator and environment modules using the CLI commands with the [Naptha SDK](https://github.com/NapthaAI/naptha-sdk). 
+This is a base module template for creating agent, agent orchestrator, and environment modules. You can check out other examples of agent, orchestrator and environment modules using the CLI commands with the [Naptha SDK](https://github.com/NapthaAI/naptha-sdk). 
 
 ## Pre-Requisites 
+
+### Install the Naptha SDK and create .env
+
+Install the Naptha SDK using the [instructions here](https://github.com/NapthaAI/naptha-sdk).
+
+### (Optional) Run your own Naptha Node
+
+You can run your own Naptha node using the [instructions here](https://github.com/NapthaAI/node) (still private, please reach out if you'd like access).
+
+### Set the environment variables
+
+Create a copy of the .env file:
+
+```bash
+cp .env.example .env
+```
+
+Choose whether you want to interact with a local Naptha node or a hosted Naptha node. For a local node, set ```NODE_URL=http://localhost:7001``` in the .env file. To use a hosted node, set ```NODE_URL=http://node.naptha.ai:7001``` or ```NODE_URL=http://node1.naptha.ai:7001```. If using OpenAI, make sure to set the ```OPENAI_API_KEY``` environment variable.
 
 ### Install Poetry 
 
@@ -13,21 +31,25 @@ curl -sSL https://install.python-poetry.org | python3 -
 export PATH="/home/$(whoami)/.local/bin:$PATH"
 ```
 
-### Install the Naptha SDK
+## Running the Module on a Naptha Node
 
-Install the Naptha SDK using the [instructions here](https://github.com/NapthaAI/naptha-sdk).
+Using the Naptha SDK:
 
-### (Optional) Run your own Naptha Node
+```bash
+naptha run agent:module_template -p "func_name='func', func_input_data='gm...'" 
+```
 
-You can run your own Naptha node using the [instructions here](https://github.com/NapthaAI/node) (still private, please reach out if you'd like access).
+## Making Changes to the Module
 
-## Clone and Install the Module
+Before deploying a new or updated module to a Naptha node, you should iterate on improvements with the module locally. 
+
+### Clone and Install the Module
 
 Clone the repo using:
 
 ```bash
-git clone https://github.com/NapthaAI/module_template
-cd module_template
+git clone https://github.com/NapthaAI/<module_name>
+cd <module_name>
 ```
 
 You can install the module using:
@@ -36,17 +58,19 @@ You can install the module using:
 poetry install
 ```
 
-Don't forget to change the name of the agent.
+### Running the Module Locally
 
-## Prototyping the Module
-
-Before deploying to a Naptha node, you should iterate on improvements with the module locally. You can run the module using:
+You can run the module using:
 
 ```bash
 poetry run python <module_name>/run.py
 ```
 
-When ready, you can push to your GitHub account or IPFS (or both). Make sure to add a version number using:
+Now you can iterate on the module and commit your changes.
+
+## Register the new or updated Module on the Naptha Hub
+
+When ready, you can push to your GitHub account or IPFS (or both). Make sure to change the remote origin. Also add a new version number using e.g.:
 
 ```bash
 git tag v0.1
@@ -55,8 +79,6 @@ git tag v0.1
 ```bash
 git push --tags
 ```
-
-## Register the Module on the Naptha Hub
 
 If creating an agent module, you can register it on the Naptha Hub using:
 
