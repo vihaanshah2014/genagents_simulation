@@ -121,6 +121,11 @@ You can run the module using:
 poetry run python <module_name>/run.py
 ```
 
+This works well too for now 
+```bash
+poetry run python -m module_template.run
+```
+
 Now you can iterate on the module and commit your changes. When ready, you can push to your GitHub account or IPFS (or both). Make sure to change the remote origin. Also add a new version number using e.g.:
 
 ```bash
