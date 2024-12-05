@@ -12,91 +12,110 @@ load_dotenv()
 
 logger = get_logger(__name__)
 
+# Path to the LLM configs
+LLM_CONFIG_PATH = "module_template/configs/llm_configs.json"
+
+# Load LLM configs from file
+def load_llm_configs(config_path=LLM_CONFIG_PATH):
+    try:
+        with open(config_path, 'r') as f:
+            configs = json.load(f)
+        return {config['config_name']: config for config in configs}
+    except FileNotFoundError:
+        logger.error(f"LLM config file not found at {config_path}")
+        return {}
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse LLM config file at {config_path}")
+        return {}
+
 # Basic module definition
 class BasicModule:
-    def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput]):
+    def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
         self.module_run = module_run
+
+        # Load LLM configs
+        self.llm_configs = load_llm_configs()
+        if llm_config_name not in self.llm_configs:
+            raise ValueError(f"LLM config '{llm_config_name}' not found in {LLM_CONFIG_PATH}")
+        self.llm_config = self.llm_configs[llm_config_name]
 
     def func(self, input_data):
         logger.info("Running module function")
 
-        # Get the agent configuration
-        agent_config = self.module_run.agent_deployment.agent_config
+        # Extract necessary parameters from the loaded LLM config
+        model = self.llm_config["model"]
+        temperature = self.llm_config["temperature"]
+        max_tokens = self.llm_config["max_tokens"]
+        api_base = self.llm_config["api_base"]
+        client = self.llm_config["client"]
 
-        # Get the LLM config from agent_config
-        llm_config = agent_config.llm_config
+        # Check if the client is 'openai' or 'ollama'
+        if client == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
 
-        # Extract necessary parameters
-        model = getattr(llm_config, 'model', 'gpt-3.5-turbo')
-        temperature = getattr(llm_config, 'temperature', 0.7)
-        max_tokens = getattr(llm_config, 'max_tokens', 1000)
-        api_base = getattr(llm_config, 'api_base', 'https://api.openai.com/v1')
-        client = getattr(llm_config, 'client', 'openai')
-
-        # Check if the client is 'openai'
-        if client == 'openai':
-            # Prepare the API key and endpoint
-            api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                return "OpenAI API key not found in environment variables."
-
-            # Prepare the headers and data for the request
             headers = [
                 "Content-Type: application/json",
                 f"Authorization: Bearer {api_key}"
             ]
-
-            # Prepare the data payload
             data = {
                 "model": model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": "If you were a human, what would your first words be?"
-                    }
-                ],
+                "messages": [{"role": "user", "content": "What are you?"}],
                 "temperature": temperature,
-                "max_tokens": max_tokens
+                "max_tokens": max_tokens,
             }
-
-            # Convert data to JSON string
             data_json = json.dumps(data)
-
-            # Build the curl command
             curl_command = [
                 "curl",
                 "-X", "POST",
                 f"{api_base}/chat/completions",
                 "-H", headers[0],
                 "-H", headers[1],
-                "-d", data_json
+                "-d", data_json,
             ]
 
-            # Execute the curl command
-            try:
-                result = subprocess.run(
-                    curl_command,
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                # Parse the response
-                response = json.loads(result.stdout)
-                content = response['choices'][0]['message']['content']
-                return content.strip()
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Curl command failed: {e.stderr}")
-                return "Failed to get response from OpenAI API."
-            except Exception as e:
-                logger.error(f"Error: {e}")
-                return "An error occurred."
+        elif client == "ollama":
+            headers = ["Content-Type: application/json"]
+            data = {
+                "model": model,
+                "messages": [{"role": "user", "content": "What are you?"}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            data_json = json.dumps(data)
+            curl_command = [
+                "curl",
+                "-X", "POST",
+                f"{api_base}/api/generate",
+                "-H", headers[0],
+                "-d", data_json,
+            ]
+
         else:
-            # Handle other clients if needed
-            return "Client not supported."
+            logger.error(f"Client '{client}' not supported.")
+            return f"Client '{client}' not supported."
+
+        
+        try:
+            result = subprocess.run(
+                curl_command,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            response = json.loads(result.stdout)
+            content = response.get("choices", [{}])[0].get("message", {}).get("content", "No content")
+            return content.strip()
+        except subprocess.CalledProcessError as e:
+            return "Failed to get response from API."
+        except json.JSONDecodeError:
+            return "Invalid API response format."
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return "An error occurred."
 
 # Default entrypoint when the module is executed
-def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput]):
-    basic_module = BasicModule(module_run)
+def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
+    basic_module = BasicModule(module_run, llm_config_name)
     method = getattr(basic_module, module_run.inputs.func_name, None)
     return method(module_run.inputs.func_input_data)
 
@@ -105,15 +124,17 @@ if __name__ == "__main__":
     from naptha_sdk.client.naptha import Naptha
     from naptha_sdk.configs import load_agent_deployments
 
-    naptha = Naptha()
+    # User can select 'model_1' or 'model_2'
+    llm_config_name = "model_2"
 
+    naptha = Naptha()
     input_params = InputSchema(func_name="func", func_input_data="gm...")
 
-    # Load Configs
+    # Load agent deployments
     agent_deployments = load_agent_deployments(
         "module_template/configs/agent_deployments.json",
         load_persona_data=False,
-        load_persona_schema=False
+        load_persona_schema=False,
     )
 
     agent_run = AgentRunInput(
@@ -122,6 +143,5 @@ if __name__ == "__main__":
         consumer_id=naptha.user.id,
     )
 
-    response = run(agent_run)
-
+    response = run(agent_run, llm_config_name)
     print("Response:\n", response)
