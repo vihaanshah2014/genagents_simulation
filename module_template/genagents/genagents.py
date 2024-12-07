@@ -1,7 +1,7 @@
 import uuid
 
-from genagents.modules.interaction import *
-from genagents.modules.memory_stream import *
+from module_template.genagents.modules.interaction import *
+from module_template.genagents.modules.memory_stream import *
 
 
 # ############################################################################
@@ -10,6 +10,10 @@ from genagents.modules.memory_stream import *
 
 class GenerativeAgent: 
   def __init__(self, agent_folder=None):
+    # Initialize defaults
+    self.id = uuid.uuid4()
+    self.scratch = {}
+    self.memory_stream = MemoryStream([], {})
     if agent_folder: 
       # We stop the process if the agent storage folder already exists. 
       if not check_if_file_exists(f"{agent_folder}/scratch.json"):
