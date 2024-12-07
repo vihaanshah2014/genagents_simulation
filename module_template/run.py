@@ -28,7 +28,6 @@ def load_llm_configs(config_path=LLM_CONFIG_PATH):
         logger.error(f"Failed to parse LLM config file at {config_path}")
         return {}
 
-# Basic module definition
 class BasicModule:
     def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
         self.module_run = module_run
@@ -39,7 +38,13 @@ class BasicModule:
             raise ValueError(f"LLM config '{llm_config_name}' not found in {LLM_CONFIG_PATH}")
         self.llm_config = self.llm_configs[llm_config_name]
 
-    def func(self, input_data):
+    def func(self, conversation_history):
+        """
+        Send the entire conversation history to the LLM and get a response.
+        conversation_history: a list of lists: [[speaker, text], ...]
+        We will translate this into OpenAI-style messages: [{'role':'user','content':'...'}, ...]
+        For simplicity, we assume the interviewer is 'user' and agent is 'assistant'.
+        """
         logger.info("Running module function")
 
         # Extract necessary parameters from the loaded LLM config
@@ -49,17 +54,26 @@ class BasicModule:
         api_base = self.llm_config["api_base"]
         client = self.llm_config["client"]
 
+        # Convert conversation history into messages format
+        # We'll treat any speaker that is not the agent as 'user', and the agent as 'assistant'.
+        messages = []
+        # Identify the agent name if needed, otherwise any non-user is assistant
+        # For simplicity, assume the conversation alternates: user -> assistant. 
+        # If you have a known agent name, you can differentiate. If not, treat all interviewer as 'user'.
+        for speaker, text in conversation_history:
+            role = "assistant" if speaker.lower() != "jane doe" else "user"
+            messages.append({"role": role, "content": text})
+
         # Check if the client is 'openai' or 'ollama'
         if client == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
-
             headers = [
                 "Content-Type: application/json",
                 f"Authorization: Bearer {api_key}"
             ]
             data = {
                 "model": model,
-                "messages": [{"role": "user", "content": "What are you?"}],
+                "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
@@ -77,7 +91,7 @@ class BasicModule:
             headers = ["Content-Type: application/json"]
             data = {
                 "model": model,
-                "messages": [{"role": "user", "content": "What are you?"}],
+                "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
@@ -94,7 +108,6 @@ class BasicModule:
             logger.error(f"Client '{client}' not supported.")
             return f"Client '{client}' not supported."
 
-        
         try:
             result = subprocess.run(
                 curl_command,
@@ -113,24 +126,22 @@ class BasicModule:
             logger.error(f"Error: {e}")
             return "An error occurred."
 
-# Default entrypoint when the module is executed
-def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
+def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str, conversation_history):
     basic_module = BasicModule(module_run, llm_config_name)
-    method = getattr(basic_module, module_run.inputs.func_name, None)
-    return method(module_run.inputs.func_input_data)
+    # We'll call `func` directly with the conversation_history
+    return basic_module.func(conversation_history)
 
 if __name__ == "__main__":
     # For testing locally
     from naptha_sdk.client.naptha import Naptha
     from naptha_sdk.configs import load_agent_deployments
 
-    # User can select 'model_1' or 'model_2'
     llm_config_name = "model_2"
-
     naptha = Naptha()
-    input_params = InputSchema(func_name="func", func_input_data="gm...")
+    # We'll just use the same input schema stub
+    input_params = InputSchema(func_name="func", func_input_data="")
 
-    # Load agent deployments
+    # Load agent deployments (if needed)
     agent_deployments = load_agent_deployments(
         "module_template/configs/agent_deployments.json",
         load_persona_data=False,
@@ -143,5 +154,21 @@ if __name__ == "__main__":
         consumer_id=naptha.user.id,
     )
 
-    response = run(agent_run, llm_config_name)
-    print("Response:\n", response)
+    interviewer_name = "Jane Doe"
+    agent_name = "Agent"  # If you want to call it something else
+    conversation_history = []
+
+    print(f"Starting conversation with {agent_name}.\nType 'exit' or 'quit' to end the conversation.\n")
+
+    while True:
+        user_input = input(f"{interviewer_name}: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Conversation ended.")
+            break
+
+        # Add the user's message to conversation history
+        conversation_history.append([interviewer_name, user_input])
+        # Get response from the agent
+        agent_response = run(agent_run, llm_config_name, conversation_history)
+        print(f"{agent_name}: {agent_response}")
+        conversation_history.append([agent_name, agent_response])
