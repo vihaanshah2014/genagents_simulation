@@ -181,3 +181,5 @@ For troubleshooting, see the Troubleshooting section in NapthaAI/node for checki
 
 Have an idea for a cool module to build? Get in touch at team@naptha.ai.
 
+There are 3505 total agents
+

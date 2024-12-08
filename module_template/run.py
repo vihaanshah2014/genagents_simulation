@@ -2,6 +2,7 @@
 import os
 import json
 import subprocess
+import random
 from dotenv import load_dotenv
 from typing import Union, Dict, Any, List
 from naptha_sdk.schemas import AgentRunInput, OrchestratorRunInput, EnvironmentRunInput
@@ -29,47 +30,115 @@ def load_llm_configs(config_path=LLM_CONFIG_PATH):
         return {}
 
 class BasicModule:
-    def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
+    def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str, agent_count: Union[int, str] = 1):
         self.module_run = module_run
         self.llm_configs = load_llm_configs()
         if llm_config_name not in self.llm_configs:
             raise ValueError(f"LLM config '{llm_config_name}' not found in {LLM_CONFIG_PATH}")
         self.llm_config = self.llm_configs[llm_config_name]
 
-        # Instead of relying on agent_deployment.config, we hard-code the agent folder or retrieve it from inputs/context.
-        # For example, using a known folder:
-        agent_folder = "module_template/agent_bank/populations/single_agent/01fd7d2a-0357-4c1b-9f3e-8eade2d537ae"
+        # Base paths for agents
+        gss_base_path = os.path.join(os.path.dirname(__file__), "agent_bank/populations/gss_agents")
+        single_agent_path = os.path.join(os.path.dirname(__file__), "agent_bank/populations/single_agent/01fd7d2a-0357-4c1b-9f3e-8eade2d537ae")
 
-        self.agent = GenerativeAgent(agent_folder)
+        # Initialize agents based on count or percentage
+        self.agents = []
+        
+        # Get all available GSS agents
+        all_gss_agents = self._get_agent_folders(gss_base_path)
+        
+        if isinstance(agent_count, int):
+            if agent_count == 1:
+                selected_agents = [single_agent_path]
+            else:
+                # Randomly select the specified number of agents
+                selected_agents = random.sample(all_gss_agents, min(agent_count, len(all_gss_agents)))
+        else:
+            # Handle percentage-based selection (e.g., "50%", "100%")
+            percentage = int(agent_count.rstrip('%'))
+            num_agents = max(1, int(len(all_gss_agents) * percentage / 100))
+            # For percentages, take a continuous slice after a random start point
+            start_idx = random.randint(0, len(all_gss_agents) - num_agents)
+            selected_agents = all_gss_agents[start_idx:start_idx + num_agents]
 
-    def func(self, conversation_history: Union[List[List[str]], str, Dict[str, Any]]):
-        """
-        Generate an utterance given the conversation history.
-        conversation_history: [[speaker, text], ...]
-        If input is not in correct format, attempt to parse/convert.
-        """
-        logger.info("Running func method in BasicModule")
-
-        if isinstance(conversation_history, str):
-            # Attempt to parse if it's a JSON string
+        # Create agent instances
+        for agent_path in selected_agents:
             try:
-                conversation_history = json.loads(conversation_history)
-            except:
-                conversation_history = [["User", conversation_history]]
-        elif isinstance(conversation_history, dict):
-            # If it's a dict, assume it may have a 'messages' key
-            conversation_history = conversation_history.get("messages", [])
+                agent = GenerativeAgent(agent_path)
+                self.agents.append(agent)
+            except Exception as e:
+                logger.error(f"Failed to load agent: {str(e)}")
 
-        if not isinstance(conversation_history, list) or not all(isinstance(i, list) and len(i) == 2 for i in conversation_history):
-            conversation_history = []
+    def _get_agent_folders(self, base_path: str) -> List[str]:
+        """Get list of agent folders from the GSS agents directory."""
+        try:
+            agent_folders = []
+            for root, dirs, files in os.walk(base_path):
+                if 'scratch.json' in files and 'meta.json' in files:
+                    agent_folders.append(root)
+            return sorted(agent_folders)  # Sort for consistent ordering
+        except Exception as e:
+            logger.error(f"Error accessing agent folders: {str(e)}")
+            return []
 
-        # Use the GenerativeAgent to get a response
-        agent_response = self.agent.utterance(conversation_history)
-        return agent_response
+    def func(self, questions: Dict[str, List[str]]):
+        """
+        Generate categorical responses to questions using all initialized agents.
+        questions: Dictionary of questions and their possible answers
+        """
+        logger.info(f"Running func method in BasicModule with {len(self.agents)} agents")
+
+        all_responses = []
+        response_counts = {}
+        explanations = {}
+
+        # Initialize response counts for each question
+        for question in questions:
+            response_counts[question] = {}
+            explanations[question] = []
+            for option in questions[question]:
+                response_counts[question][option] = 0
+
+        # Collect responses and count them
+        for agent in self.agents:
+            agent_response = agent.categorical_resp(questions)
+            all_responses.append(agent_response)
+            
+            # Count responses and store explanations
+            for q_idx, question in enumerate(questions):
+                response = agent_response['responses'][q_idx]
+                reasoning = agent_response['reasonings'][q_idx]
+                response_counts[question][response] += 1
+                explanations[question].append(reasoning)
+
+        # Create visual representation
+        visual_summary = {}
+        for question in questions:
+            total = sum(response_counts[question].values())
+            visual_summary[question] = {
+                'counts': response_counts[question],
+                'percentages': {
+                    option: f"{(count/total*100):.1f}%" 
+                    for option, count in response_counts[question].items()
+                },
+                'visual': {
+                    option: f"{'█' * int(count/total*20)}{count}/{total}" 
+                    for option, count in response_counts[question].items()
+                },
+                'explanations': explanations[question]
+            }
+
+        return {
+            "individual_responses": all_responses,
+            "summary": visual_summary,
+            "num_agents": len(self.agents)
+        }
 
 # Default entrypoint when the module is executed
-def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str):
-    basic_module = BasicModule(module_run, llm_config_name)
+def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], 
+        llm_config_name: str,
+        agent_count: Union[int, str] = 1):
+    basic_module = BasicModule(module_run, llm_config_name, agent_count)
     method = getattr(basic_module, module_run.inputs.func_name, None)
     if method is None:
         raise ValueError(f"Method '{module_run.inputs.func_name}' not found in BasicModule")
@@ -88,13 +157,53 @@ if __name__ == "__main__":
         load_persona_schema=False,
     )
 
-    input_params = InputSchema(func_name="func", func_input_data=[["Jane Doe", "Hello, how are you?"]])
+    # Test questions for categorical responses
+    test_questions = {
+        "If you were a superhero, what would be your primary power?": ["Mind Reading", "Time Travel", "Shapeshifting", "Invisibility", "Super Strength", "Super Speed"]
+    }
+
+    input_params = InputSchema(func_name="func", func_input_data=test_questions)
     agent_run = AgentRunInput(
         inputs=input_params,
         agent_deployment=agent_deployments[0] if agent_deployments else None,
         consumer_id=naptha.user.id,
     )
 
-    llm_config_name = "model_2"  # Example config name
-    response = run(agent_run, llm_config_name)
-    print("Agent response:", response)
+    # Example usage with different agent counts:
+    # Single agent (default)
+    # response = run(agent_run, "model_2")
+    # print("\nSingle agent response:")
+    # for question, data in response['summary'].items():
+    #     print(f"\nQuestion: {question}")
+    #     for option, visual in data['visual'].items():
+    #         print(f"{option}: {visual}")
+    #     print("\nExplanations:")
+    #     for exp in data['explanations']:
+    #         print(f"- {exp}")
+
+    # 5 GSS agents
+    response = run(agent_run, "model_2", agent_count=20)
+    print("\n5 agents response:")
+    for question, data in response['summary'].items():
+        print(f"\nQuestion: {question}")
+        for option, visual in data['visual'].items():
+            print(f"{option}: {visual}")
+        # Uncomment to see explanations
+        # print("\nExplanations:")
+        # for exp in data['explanations']:
+        #     print(f"- {exp}")
+
+    # # Test with 25% of available agents
+    # response = run(agent_run, "model_2", agent_count="25%")
+    # print("\n25% of agents response:")
+    # for question, data in response['summary'].items():
+    #     print(f"\nQuestion: {question}")
+    #     for option, visual in data['visual'].items():
+    #         print(f"{option}: {visual}")
+    #     print("\nPercentages:")
+    #     for option, percentage in data['percentages'].items():
+    #         print(f"{option}: {percentage}")
+        # Uncomment to see explanations
+        # print("\nExplanations:")
+        # for exp in data['explanations']:
+        #     print(f"- {exp}")

@@ -8,7 +8,7 @@ def test_agent_memory():
 
     # Load agent deployment config
     agent_deployments = load_agent_deployments(
-        "module_template/configs/agent_deployments.json", 
+        "genagents/configs/agent_deployments.json", 
         load_persona_data=False, 
         load_persona_schema=False
     )
