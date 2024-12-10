@@ -146,10 +146,57 @@ def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInp
     return method(module_run.inputs.func_input_data)
 
 if __name__ == "__main__":
-    # For local testing
+    import argparse
+    import json
     from naptha_sdk.client.naptha import Naptha
     from naptha_sdk.configs import load_agent_deployments
 
+    TOTAL_AGENTS = 3505  # Total number of available agents
+
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Run agent simulations')
+    parser.add_argument('command', choices=['simulate'], help='Command to execute')
+    parser.add_argument('-p', '--params', nargs='+', help='Parameters in format key=value', required=True)
+    parser.add_argument('--llm', default='model_2', help='LLM config to use')
+    parser.add_argument('--show-explanations', action='store_true', help='Show individual agent explanations')
+    parser.add_argument('--raw-output', action='store_true', help='Show raw response object without formatting')
+
+    args = parser.parse_args()
+
+    # Parse parameters
+    params = {}
+    for param in args.params:
+        key, value = param.split('=', 1)
+        # Remove any surrounding quotes
+        value = value.strip('\'"')
+        params[key] = value
+
+    # Required parameters
+    required_params = ['prompt', 'question', 'type', 'agents']
+    for param in required_params:
+        if param not in params:
+            parser.error(f"Missing required parameter: {param}")
+
+    # Handle categorical type
+    if params['type'] == 'categorical' and 'options' not in params:
+        parser.error("Categorical type requires 'options' parameter (comma-separated list)")
+
+    # Process options if provided
+    if 'options' in params:
+        params['options'] = [opt.strip() for opt in params['options'].split(',')]
+
+    # Convert agents parameter to int
+    if params['agents'].endswith('%'):
+        percentage = float(params['agents'].rstrip('%'))
+        agent_count = int((percentage / 100) * TOTAL_AGENTS)
+        # Ensure at least 1 agent
+        agent_count = max(1, agent_count)
+    else:
+        agent_count = int(params['agents'])
+        # Cap at maximum available agents
+        agent_count = min(agent_count, TOTAL_AGENTS)
+
+    # Set up naptha client
     naptha = Naptha()
     agent_deployments = load_agent_deployments(
         "module_template/configs/agent_deployments.json",
@@ -157,11 +204,14 @@ if __name__ == "__main__":
         load_persona_schema=False,
     )
 
-    # Test questions for categorical responses
-    test_questions = {
-        "If you were a superhero, what would be your primary power?": ["Mind Reading", "Time Travel", "Shapeshifting", "Invisibility", "Super Strength", "Super Speed"]
-    }
+    # Prepare input based on type
+    if params['type'] == 'categorical':
+        test_questions = {f"{params['prompt']}\n{params['question']}": params['options']}
+    else:
+        # Handle open-ended questions when implemented
+        raise NotImplementedError("Open-ended questions not yet implemented")
 
+    # Prepare and run simulation
     input_params = InputSchema(func_name="func", func_input_data=test_questions)
     agent_run = AgentRunInput(
         inputs=input_params,
@@ -169,41 +219,22 @@ if __name__ == "__main__":
         consumer_id=naptha.user.id,
     )
 
-    # Example usage with different agent counts:
-    # Single agent (default)
-    # response = run(agent_run, "model_2")
-    # print("\nSingle agent response:")
-    # for question, data in response['summary'].items():
-    #     print(f"\nQuestion: {question}")
-    #     for option, visual in data['visual'].items():
-    #         print(f"{option}: {visual}")
-    #     print("\nExplanations:")
-    #     for exp in data['explanations']:
-    #         print(f"- {exp}")
+    print(f"\nRunning simulation with {agent_count} agents...")
+    response = run(agent_run, args.llm, agent_count=agent_count)
 
-    # 5 GSS agents
-    response = run(agent_run, "model_2", agent_count=20)
-    print("\n5 agents response:")
+    # Print results
     for question, data in response['summary'].items():
-        print(f"\nQuestion: {question}")
+        print(f"\nResults for: {question}")
+        print("\nResponses:")
         for option, visual in data['visual'].items():
             print(f"{option}: {visual}")
-        # Uncomment to see explanations
-        # print("\nExplanations:")
-        # for exp in data['explanations']:
-        #     print(f"- {exp}")
-
-    # # Test with 25% of available agents
-    # response = run(agent_run, "model_2", agent_count="25%")
-    # print("\n25% of agents response:")
-    # for question, data in response['summary'].items():
-    #     print(f"\nQuestion: {question}")
-    #     for option, visual in data['visual'].items():
-    #         print(f"{option}: {visual}")
-    #     print("\nPercentages:")
-    #     for option, percentage in data['percentages'].items():
-    #         print(f"{option}: {percentage}")
-        # Uncomment to see explanations
-        # print("\nExplanations:")
-        # for exp in data['explanations']:
-        #     print(f"- {exp}")
+        print("\nPercentages:")
+        for option, percentage in data['percentages'].items():
+            print(f"{option}: {percentage}")
+        
+        # Show explanations if requested
+        if args.show_explanations:
+            print("\nExplanations:")
+            for i, explanation in enumerate(data['explanations'], 1):
+                print(f"\nAgent {i}:")
+                print(explanation)
