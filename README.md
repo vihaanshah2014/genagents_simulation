@@ -148,8 +148,9 @@ For this step, you will need to:
 If creating an agent module, you can register it on the Hub using:
 
 ```bash
-naptha agents agent_name -p "description='Agent description' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
+naptha agents genagents -p "description='based on the GenAgents Paper' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
 ```
+naptha run agent:genagents -p "{\"func_name\":\"func\", \"func_input_data\":{\"Consider yourself a typical American citizen.\nDo you support increasing the minimum wage?\":[\"Yes\",\"No\",\"Undecided\"]}, \"agent_count\":1}"
 
 If creating an orchestrator module, you can register it on the Hub using:
 
