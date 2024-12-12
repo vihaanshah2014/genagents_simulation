@@ -1,7 +1,7 @@
 [
     {
         "name": "agent_deployment_1",
-        "module": {"name": "module_template"},
+        "module": {"name": "genagents_simulation"},
         "worker_node_url": "http://localhost:7001",
         "agent_config": {
             "config_name": "agent_config_1",
