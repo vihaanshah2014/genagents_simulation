@@ -126,6 +126,10 @@ This works well too for now
 poetry run python -m module_template.run
 ```
 
+```bash
+poetry run python -m genagents_simulation.run simulate -p prompt="Consider yourself a typical American citizen." question="Do you support increasing the minimum wage?" type="categorical" options="Yes,No,Undecided" agents=1
+```
+
 Now you can iterate on the module and commit your changes. When ready, you can push to your GitHub account or IPFS (or both). Make sure to change the remote origin. Also add a new version number using e.g.:
 
 ```bash
@@ -150,7 +154,7 @@ If creating an agent module, you can register it on the Hub using:
 ```bash
 naptha agents genagents -p "description='based on the GenAgents Paper' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
 ```
-naptha run agent:genagents -p "{\"func_name\":\"func\", \"func_input_data\":{\"Consider yourself a typical American citizen.\nDo you support increasing the minimum wage?\":[\"Yes\",\"No\",\"Undecided\"]}, \"agent_count\":1}"
+naptha run agent:genagents_simulation -p "{\"func_name\":\"func\", \"func_input_data\":{\"Consider yourself a typical American citizen.\nDo you support increasing the minimum wage?\":[\"Yes\",\"No\",\"Undecided\"]}, \"agent_count\":1}"
 
 If creating an orchestrator module, you can register it on the Hub using:
 

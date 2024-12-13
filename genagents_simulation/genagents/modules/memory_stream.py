@@ -8,10 +8,10 @@ import re
 from numpy import dot
 from numpy.linalg import norm
 
-from module_template.simulation_engine.settings import * 
-from module_template.simulation_engine.global_methods import *
-from module_template.simulation_engine.gpt_structure import *
-from module_template.simulation_engine.llm_json_parser import *
+from genagents_simulation.simulation_engine.settings import * 
+from genagents_simulation.simulation_engine.global_methods import *
+from genagents_simulation.simulation_engine.gpt_structure import *
+from genagents_simulation.simulation_engine.llm_json_parser import *
 
 
 def run_gpt_generate_importance(

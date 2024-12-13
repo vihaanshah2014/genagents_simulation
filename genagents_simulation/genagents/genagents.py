@@ -1,7 +1,7 @@
 import uuid
 
-from module_template.genagents.modules.interaction import *
-from module_template.genagents.modules.memory_stream import *
+from genagents_simulation.genagents.modules.interaction import *
+from genagents_simulation.genagents.modules.memory_stream import *
 
 
 # ############################################################################

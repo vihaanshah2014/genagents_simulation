@@ -7,15 +7,15 @@ from dotenv import load_dotenv
 from typing import Union, Dict, Any, List
 from naptha_sdk.schemas import AgentRunInput, OrchestratorRunInput, EnvironmentRunInput
 from naptha_sdk.utils import get_logger
-from module_template.schemas import InputSchema
-from module_template.simulation_engine.global_methods import *
-from module_template.genagents.genagents import GenerativeAgent
+from genagents_simulation.schemas import InputSchema
+from genagents_simulation.simulation_engine.global_methods import *
+from genagents_simulation.genagents.genagents import GenerativeAgent
 
 load_dotenv()
 
 logger = get_logger(__name__)
 
-LLM_CONFIG_PATH = "module_template/configs/llm_configs.json"
+LLM_CONFIG_PATH = "genagents_simulation/configs/llm_configs.json"
 
 def load_llm_configs(config_path=LLM_CONFIG_PATH):
     try:
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     # Set up naptha client
     naptha = Naptha()
     agent_deployments = load_agent_deployments(
-        "module_template/configs/agent_deployments.json",
+        "genagents_simulation/configs/agent_deployments.json",
         load_persona_data=False,
         load_persona_schema=False,
     )

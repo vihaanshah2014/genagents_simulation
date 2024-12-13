@@ -3,7 +3,7 @@ import time
 import base64
 from typing import List, Union
 
-from module_template.simulation_engine.settings import *
+from genagents_simulation.simulation_engine.settings import *
 
 openai.api_key = OPENAI_API_KEY
 

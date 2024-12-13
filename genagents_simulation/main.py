@@ -1,6 +1,6 @@
 import json
-from module_template.simulation_engine.global_methods import *
-from module_template.genagents.genagents import GenerativeAgent
+from genagents_simulation.simulation_engine.global_methods import *
+from genagents_simulation.genagents.genagents import GenerativeAgent
 
 class Conversation:
   def __init__(self, agent_folder, interviewer_name="Interviewer"):
@@ -28,7 +28,7 @@ class Conversation:
 # Example usage:
 if __name__ == "__main__":
   # Specify the folder where the agent is stored
-  agent_folder = "module_templateagent_bank/populations/single_agent/01fd7d2a-0357-4c1b-9f3e-8eade2d537ae"
+  agent_folder = "genagents_simulationagent_bank/populations/single_agent/01fd7d2a-0357-4c1b-9f3e-8eade2d537ae"
   # Create a Conversation instance
   conversation = Conversation(agent_folder, interviewer_name="Jane Doe")
   # Start the conversation

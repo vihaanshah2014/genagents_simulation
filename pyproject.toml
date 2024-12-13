@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "module-template"
+name = "genagents_simulation"
 version = "0.1.0"
 description = ""
 authors = ["Richard Blythman <richardblythman@gmail.com>"]
 readme = "README.md"
+packages = [
+    {include = "genagents_simulation", from="."}
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<=3.13"
