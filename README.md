@@ -1,190 +1,207 @@
-# Naptha Module Template
+# GenAgents Simulation Module
 
-This is a base module template for creating agent, agent orchestrator, environment and tool modules. You can check out other examples of agent, orchestrator, environment and tool modules using the CLI commands with the [Naptha SDK](https://github.com/NapthaAI/naptha-sdk). 
+GenAgents Simulation is a powerful Naptha Module designed to simulate interactions and responses from a vast population of generative agents. With **3,505 total agents**, this module enables the creation of complex multi-agent environments, social simulations, and large-scale testing scenarios. Whether you're building social simulations, testing AI behaviors, or creating dynamic environments, GenAgents Simulation provides the flexibility and scalability you need.
 
-- [🧩 What are Naptha Modules](#-what-are-naptha-modules)
-- [🏗 Creating a new Naptha Module](#-creating-a-new-naptha-module)
-  - [🛠️ Prerequisites](#-prerequisites)
-  - [🔧 Making Changes to the Module](#-making-changes-to-the-module)
-    - [Clone and Install the Module](#clone-and-install-the-module)
-    - [Making Changes to the Code](#making-changes-to-the-code)
-    - [Making Changes to the Configs](#making-changes-to-the-configs)
-- [🧪 Testing the Module](#-testing-the-module)
-  - [🖥️ Test the Module Locally without Node](#-test-the-module-locally-without-node)
-  - [🌐 Test the Module on a Local Node (with a Local Hub)](#-test-the-module-on-a-local-node-with-a-local-hub)
-    - [Register the new or updated Module on a local Hub](#register-the-new-or-updated-module-on-a-local-hub)
-    - [Running the Module on a local Naptha Node](#running-the-module-on-a-local-naptha-node)
-  - [☁️ Test the Module on a hosted Node (with the hosted Naptha Hub)](#-test-the-module-on-a-hosted-node-with-the-hosted-naptha-hub)
-- [💰 Bounties & Microgrants](#-bounties-and-microgrants)
+## Table of Contents
 
-## 🧩 What are Naptha Modules
+- [🔍 Overview](#-overview)
+- [🚀 Features](#-features)
+- [🛠 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [💻 Usage](#-usage)
+  - [Command Syntax](#command-syntax)
+  - [Example Commands](#example-commands)
+- [🌐 Deployment](#-deployment)
+- [📊 Understanding the Output](#-understanding-the-output)
+- [📜 License](#-license)
 
-Naptha Modules are the building blocks of multi-agent applications, which enable them to run across multiple nodes. There are currently five types of Modules:
+## 🔍 Overview
 
-- **Agent Modules:** Things like Chat Agents, Task-solving Agents, ReAct Agents, etc.
-- **Agent Orchestrator Modules:** Things like Organizations of Coding Agents, Social Simulations, etc.
-- **Environment Modules:** Things like Group Chats (like WhatsApp for Agents), Information Board (Reddit for Agents), Auctions (eBay for Agents), etc.
-- **Tool Modules:** Things like Web Search, Python Code Execution, etc.
-- **Persona Modules:** Things like Social Personas generated from exported Twitter data, or synthetically-generated Market Personas
+GenAgents Simulation leverages large language models (LLMs) to generate realistic and diverse agent behaviors. Each agent can simulate responses based on predefined personas, configurations, and prompts, allowing for intricate simulations of social dynamics, decision-making processes, and more.
 
-Modules are stored on GitHub, HuggingFace, IPFS, or DockerHub with the URL registered on the Naptha Hub. If you're familiar with Kubeflow Pipelines, Modules are a bit like Components. Modules are based on Poetry Python packages, with some additions like schemas, configs, and an entrypoint. A typical Module has the following structure:
+### Key Highlights
 
-```
-- my_module/
-  - my_module/
-    - __init__.py
-    - configs/
-      - agent_deployments.json
-      - environment_deployments.json
-      - llm_configs.json
-      - orchestrator_configs.json
-    - run.py
-    - schemas.py
-  - tests/
-    - __init__.py
-  - pyproject.toml
-  - poetry.lock
-  - README.md
-  - LICENSE
-  - .env
-  - .gitignore
-  - Dockerfile
-```
+- **Massive Agent Pool:** Simulate interactions with up to **3,505 agents**, enabling large-scale simulations.
+- **Customizable Configurations:** Tailor agent behaviors using detailed configurations in `deployment.json`.
+- **Dynamic Responses:** Agents generate responses based on the latest LLM configurations, ensuring up-to-date and relevant interactions.
+- **Scalable Architecture:** Designed to run efficiently on local machines or distributed Naptha Nodes.
 
-You can run Modules locally, or deploy to a Naptha Node using `naptha run` commands from the [Naptha SDK](https://github.com/NapthaAI/naptha-sdk). Modules are executed within Poetry virtual environments or Docker containers on Naptha Nodes.
+## 🚀 Features
 
-## 🏗 Creating a new Naptha Module
+- **Flexible Input Parameters:** Customize questions, options, LLM configurations, and agent counts via command-line arguments.
+- **Detailed Summaries:** Receive comprehensive summaries of agent responses, including counts, percentages, visual representations, and explanations.
+- **Extensible Design:** Easily extendable to accommodate new agent behaviors, personas, and configurations.
 
-### 🛠 Prerequisites 
+## 🛠 Installation
 
-#### Install Poetry 
+### Prerequisites
 
-From the official poetry [docs](https://python-poetry.org/docs/#installing-with-the-official-installer):
+- **Python 3.12** or higher
+- **Poetry** for dependency management
+- **Naptha SDK** installed and configured
+
+### Install Poetry
+
+If you haven't installed Poetry yet, follow these steps:
 
 ```bash
 curl -sSL https://install.python-poetry.org | python3 -
-export PATH="/home/$(whoami)/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### 🔧 Making Changes to the Module
-
-Before deploying a new or updated module to a Naptha node, you should iterate on improvements with the module locally. 
-
-### Clone and Install the Module
-
-Clone the repo using:
+### Clone the Repository
 
 ```bash
-git clone https://github.com/NapthaAI/<module_name>
-cd <module_name>
+git clone https://github.com/vihaan.shah2014/genagents_simulation
+cd genagents_simulation
 ```
 
-Create a copy of the .env file:
-
-```bash
-cp .env.example .env
-```
-
-If your module calls others modules (e.g. using Agent(), Tool(), or Environment()), you need to set a ```PRIVATE_KEY``` in the .env file (e.g. this can be the same as the ```PRIVATE_KEY``` you use with the Naptha SDK). If using OpenAI, make sure to set the ```OPENAI_API_KEY``` environment variable.
-
-You can install the module using:
+### Install Dependencies
 
 ```bash
 poetry install
 ```
 
-#### Making Changes to the Code
+### Setup Environment Variables
 
-The main place to make changes to the code is in the ```run.py``` file. This is the default entry point that will be used when the module run is initiated. The run function can instantiate a class (e.g. an agent class) or call a function. 
-
-#### Making Changes to the Configs
-
-You can make changes to the configs in the ```configs``` folder. For example:
-
-**MODEL**: If you would like to use a different model, you can change the ```llm_config['config_name']``` in the ```agent_deployments.json``` file (the ```config_name``` must match the ```config_name``` in the ```llm_configs.json``` file). If using OpenAI, make sure to set the ```OPENAI_API_KEY``` environment variable.
-
-**PERSONA**: If you would like to use a different persona, you can change the ```persona_module['url']``` in the ```agent_deployments.json``` file (the ```url``` must point to a valid Hugging Face dataset).
-
-## 🧪 Testing the Module
-
-After making changes to the module, testing usually involves the following steps:
-
-1. Test the module locally without the Naptha Node
-2. Test the module on a local Naptha Node (with a local Hub)
-3. Test the module on a hosted Naptha Node (with the hosted Naptha Hub)
-
-### 🖥️ Test the Module Locally without Node
-
-You can run the module using:
+Create a copy of the `.env.example` file:
 
 ```bash
-poetry run python <module_name>/run.py
+cp .env.example .env
 ```
 
-This works well too for now 
-```bash
-poetry run python -m module_template.run
+Edit the `.env` file to include necessary environment variables, such as `PRIVATE_KEY` and `OPENAI_API_KEY` if using OpenAI.
+
+## ⚙️ Configuration
+
+### Deployment Configuration
+
+The `deployment.json` file located in `genagents_simulation/configs/` defines how agents are deployed and configured. Here's a sample structure:
+
+```json
+[
+    {
+        "name": "deployment_1",
+        "module": {"name": "genagents_simulation"},
+        "node": {"ip": "localhost", "port": 7001},
+        "config": {
+            "config_name": "agent_config_1",
+            "llm_config": {"config_name": "model_2"},
+            "persona_module": {
+                "url": "https://huggingface.co/datasets/richardblythman/characterfile_richardblythman"
+            },
+            "system_prompt": {
+                "role": "You are a helpful AI assistant.",
+                "persona": ""
+            }
+        }
+    }
+]
 ```
 
-```bash
-poetry run python -m genagents_simulation.run simulate -p prompt="Consider yourself a typical American citizen." question="Do you support increasing the minimum wage?" type="categorical" options="Yes,No,Undecided" agents=1
-```
+Ensure that each deployment entry includes all required fields as per the `AgentDeployment` schema.
 
-Now you can iterate on the module and commit your changes. When ready, you can push to your GitHub account or IPFS (or both). Make sure to change the remote origin. Also add a new version number using e.g.:
+### LLM Configurations
 
-```bash
-git tag v0.1
-```
+LLM configurations are defined in `llm_configs.json`. Customize these to change the underlying language models used by the agents.
 
-```bash
-git push --tags
-```
+## 💻 Usage
 
-### 🌐 Test the Module on a Local Node (with a Local Hub)
+GenAgents Simulation can be executed directly via the command line, allowing you to specify custom questions, options, LLM configurations, and the number of agents.
 
-For this step, you will need to:
-
-1. Run your own Naptha Node and Hub. Follow the instructions [here](https://github.com/NapthaAI/node) (still private, please reach out if you'd like access) to run your own Naptha Node and Hub. To run a local Hub, set ```LOCAL_HUB=True``` in the .env file for the NapthaAI/node repository.
-2. Install the Naptha SDK using the [instructions here](https://github.com/NapthaAI/naptha-sdk). To use the SDK with your local node and hub, set ```NODE_URL=http://localhost:7001``` and ```HUB_URL=ws://localhost:3001/rpc``` in the .env file for the NapthaAI/naptha-sdk repository.
-
-#### Register the new or updated Module on a local Hub
-
-If creating an agent module, you can register it on the Hub using:
-
-```bash
-naptha agents genagents -p "description='based on the GenAgents Paper' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
-```
-naptha run agent:genagents_simulation -p "{\"func_name\":\"func\", \"func_input_data\":{\"Consider yourself a typical American citizen.\nDo you support increasing the minimum wage?\":[\"Yes\",\"No\",\"Undecided\"]}, \"agent_count\":1}"
-
-If creating an orchestrator module, you can register it on the Hub using:
-
-```bash
-naptha orchestrators orchestrator_name -p "description='Orchestrator description' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
-```
-
-If creating an environment module, you can register it on the Hub using:
+### Command Syntax
 
 ```bash
-naptha environments environment_name -p "description='Environment description' url='ipfs://QmNer9SRKmJPv4Ae3vdVYo6eFjPcyJ8uZ2rRSYd3koT6jg' type='package' version='0.1'" 
+python genagents_simulation/run.py --question "<YOUR_QUESTION>" --options "<OPTION1,OPTION2,...>" [--llm_config_name "<LLM_CONFIG>"] [--agent_count <NUMBER>]
 ```
 
-Make sure to replace the placeholder descriptions and URLs with your own. To check that the module is registered correctly, you can run ```naptha agents```, ```naptha orchestrators```, or ```naptha environments```.
+### Example Commands
 
-#### Running the Module on a local Naptha Node
+1. **Basic Usage**
 
-Once the module is registered on the Hub, you can run it on a local Naptha Node using the Naptha SDK:
+    Simulate a single agent answering a simple question:
 
-```bash
-naptha run agent:module_template -p "func_name='func', func_input_data='gm...'" 
+    ```bash
+    python genagents_simulation/run.py --question "Do you support increasing the minimum wage?" --options "Yes,No,Undecided"
+    ```
+
+2. **Specify LLM Configuration and Multiple Agents**
+
+    Run the simulation with a specific LLM configuration and multiple agents:
+
+    ```bash
+    python genagents_simulation/run.py --question "Should public transportation be free?" --options "Yes,No,Depends" --llm_config_name "model_3" --agent_count 5
+    ```
+
+3. **Custom LLM Configuration**
+
+    Use a different LLM configuration for varied responses:
+
+    ```bash
+    python genagents_simulation/run.py --question "Is climate change a significant threat?" --options "Yes,No" --llm_config_name "model_4" --agent_count 10
+    ```
+
+## 🌐 Deployment
+
+### Running Locally
+
+Ensure that your Naptha Node and Hub are running locally. Then execute the module using the command syntax provided above.
+
+### Deploying to a Naptha Node
+
+1. **Register the Module**
+
+    Register your module on the Naptha Hub:
+
+    ```bash
+    naptha agents genagents_simulation -p "description='GenAgents Simulation Module' url='ipfs://<YOUR_IPFS_HASH>' type='package' version='1.0'"
+    ```
+
+2. **Run the Module on the Node**
+
+    Execute the module on your Naptha Node:
+
+    ```bash
+    naptha run agent:genagents_simulation --question "Do you support increasing the minimum wage?" --options "Yes,No,Undecided" --llm_config_name "model_2" --agent_count 1
+    ```
+
+## 📊 Understanding the Output
+
+When you run the simulation, the output will be a JSON object containing:
+
+- **individual_responses**: Each agent's response and reasoning.
+- **summary**: Aggregated data including counts, percentages, visual representations, and explanations for each option.
+- **num_agents**: The total number of agents that participated in the simulation.
+
+### Sample Output
+
+```json
+{
+    "individual_responses": [
+        {
+            "responses": ["Yes"],
+            "reasonings": ["Given the participant's slightly liberal political views and their emphasis on the importance of community and social impact in their work, it is reasonable to predict that they would support increasing the minimum wage. They have not indicated any strong opposition to social welfare policies."]
+        }
+    ],
+    "summary": {
+        "Do you support increasing the minimum wage?": {
+            "counts": {"Yes": 1, "No": 0, "Undecided": 0},
+            "percentages": {"Yes": "100.0%", "No": "0.0%", "Undecided": "0.0%"},
+            "visual": {"Yes": "████████████████████ 1/1", "No": " 0/1", "Undecided": " 0/1"},
+            "explanations": [
+                "Given the participant's slightly liberal political views and their emphasis on the importance of community and social impact in their work, it is reasonable to predict that they would support increasing the minimum wage. They have not indicated any strong opposition to social welfare policies."
+            ]
+        }
+    },
+    "num_agents": 1
+}
 ```
 
-For troubleshooting, see the Troubleshooting section in NapthaAI/node for checking the logs.
+### Breakdown
 
-### ☁️ Test the Module on a hosted Node (with the hosted Naptha Hub)
+- **individual_responses**: Detailed responses from each agent, including their reasoning.
+- **summary**: Aggregated results showing how many agents chose each option, the percentage breakdown, visual bars representing the distribution, and aggregated explanations.
+- **num_agents**: Indicates the number of agents that participated.
+---
 
-## 💰 Bounties and Microgrants
-
-Have an idea for a cool module to build? Get in touch at team@naptha.ai.
-
-There are 3505 total agents
-
+For further assistance or to contribute, please contact me at [vihaan.shah2014@gmail.com](mailto:vihaan.shah2014@gmail.com).

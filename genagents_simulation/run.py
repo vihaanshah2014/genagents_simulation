@@ -1,14 +1,15 @@
 #!/usr/bin/env python
+import argparse
 import os
 import json
-import subprocess
 import random
+from typing import List, Dict
+
 from dotenv import load_dotenv
-from typing import Union, Dict, Any, List
-from naptha_sdk.schemas import AgentRunInput, OrchestratorRunInput, EnvironmentRunInput
+from naptha_sdk.schemas import AgentRunInput, AgentDeployment
 from naptha_sdk.utils import get_logger
 from genagents_simulation.schemas import InputSchema
-from genagents_simulation.simulation_engine.global_methods import *
+from naptha_sdk.client.naptha import Naptha
 from genagents_simulation.genagents.genagents import GenerativeAgent
 
 load_dotenv()
@@ -30,38 +31,38 @@ def load_llm_configs(config_path=LLM_CONFIG_PATH):
         return {}
 
 class BasicModule:
-    def __init__(self, module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], llm_config_name: str, agent_count: Union[int, str] = 1):
+    def __init__(self, module_run: AgentRunInput):
         self.module_run = module_run
         self.llm_configs = load_llm_configs()
+        
+        # Extract LLM config name and agent count
+        llm_config_name = module_run.inputs.llm_config_name
+        if not llm_config_name:
+            raise ValueError("Missing 'llm_config_name' in input parameters.")
         if llm_config_name not in self.llm_configs:
             raise ValueError(f"LLM config '{llm_config_name}' not found in {LLM_CONFIG_PATH}")
         self.llm_config = self.llm_configs[llm_config_name]
 
+        agent_count = module_run.inputs.agent_count
+
         # Base paths for agents
         gss_base_path = os.path.join(os.path.dirname(__file__), "agent_bank/populations/gss_agents")
         single_agent_path = os.path.join(os.path.dirname(__file__), "agent_bank/populations/single_agent/01fd7d2a-0357-4c1b-9f3e-8eade2d537ae")
+        self.agents = []
 
         # Initialize agents based on count or percentage
-        self.agents = []
-        
-        # Get all available GSS agents
         all_gss_agents = self._get_agent_folders(gss_base_path)
-        
         if isinstance(agent_count, int):
             if agent_count == 1:
                 selected_agents = [single_agent_path]
             else:
-                # Randomly select the specified number of agents
                 selected_agents = random.sample(all_gss_agents, min(agent_count, len(all_gss_agents)))
         else:
-            # Handle percentage-based selection (e.g., "50%", "100%")
+            # Handle percentage-based agent_count if needed in the future
             percentage = int(agent_count.rstrip('%'))
             num_agents = max(1, int(len(all_gss_agents) * percentage / 100))
-            # For percentages, take a continuous slice after a random start point
-            start_idx = random.randint(0, len(all_gss_agents) - num_agents)
-            selected_agents = all_gss_agents[start_idx:start_idx + num_agents]
+            selected_agents = random.sample(all_gss_agents, num_agents)
 
-        # Create agent instances
         for agent_path in selected_agents:
             try:
                 agent = GenerativeAgent(agent_path)
@@ -70,171 +71,127 @@ class BasicModule:
                 logger.error(f"Failed to load agent: {str(e)}")
 
     def _get_agent_folders(self, base_path: str) -> List[str]:
-        """Get list of agent folders from the GSS agents directory."""
         try:
             agent_folders = []
             for root, dirs, files in os.walk(base_path):
                 if 'scratch.json' in files and 'meta.json' in files:
                     agent_folders.append(root)
-            return sorted(agent_folders)  # Sort for consistent ordering
+            return sorted(agent_folders)
         except Exception as e:
             logger.error(f"Error accessing agent folders: {str(e)}")
             return []
 
-    def func(self, questions: Dict[str, List[str]]):
-        """
-        Generate categorical responses to questions using all initialized agents.
-        questions: Dictionary of questions and their possible answers
-        """
-        logger.info(f"Running func method in BasicModule with {len(self.agents)} agents")
+    def func(self, input_data: Dict[str, List[str]]):
+        logger.info(f"Running module function with {len(self.agents)} agents")
+        logger.debug(f"Input data received: {input_data}")
+
+        # Validate input_data format
+        if not isinstance(input_data, dict):
+            raise ValueError("Input data must be a dictionary with questions as keys and lists of options as values.")
+
+        for question, options in input_data.items():
+            if not isinstance(options, list):
+                raise ValueError(f"Expected a list of options for question '{question}', but got {type(options).__name__}.")
 
         all_responses = []
         response_counts = {}
         explanations = {}
 
-        # Initialize response counts for each question
-        for question in questions:
+        for question, options in input_data.items():
             response_counts[question] = {}
             explanations[question] = []
-            for option in questions[question]:
+            for option in options:
                 response_counts[question][option] = 0
 
-        # Collect responses and count them
         for agent in self.agents:
-            agent_response = agent.categorical_resp(questions)
+            agent_response = agent.categorical_resp(input_data)
             all_responses.append(agent_response)
-            
-            # Count responses and store explanations
-            for q_idx, question in enumerate(questions):
+
+            for q_idx, question in enumerate(input_data):
                 response = agent_response['responses'][q_idx]
                 reasoning = agent_response['reasonings'][q_idx]
                 response_counts[question][response] += 1
                 explanations[question].append(reasoning)
 
-        # Create visual representation
         visual_summary = {}
-        for question in questions:
+        for question in input_data:
             total = sum(response_counts[question].values())
             visual_summary[question] = {
                 'counts': response_counts[question],
-                'percentages': {
-                    option: f"{(count/total*100):.1f}%" 
-                    for option, count in response_counts[question].items()
-                },
-                'visual': {
-                    option: f"{'█' * int(count/total*20)}{count}/{total}" 
-                    for option, count in response_counts[question].items()
-                },
-                'explanations': explanations[question]
+                'percentages': {option: f"{(count / total * 100):.1f}%" for option, count in response_counts[question].items()},
+                'visual': {option: f"{'█' * int(count / total * 20)} {count}/{total}" for option, count in response_counts[question].items()},
+                'explanations': explanations[question],
             }
 
         return {
             "individual_responses": all_responses,
             "summary": visual_summary,
-            "num_agents": len(self.agents)
+            "num_agents": len(self.agents),
         }
 
-# Default entrypoint when the module is executed
-def run(module_run: Union[AgentRunInput, OrchestratorRunInput, EnvironmentRunInput], 
-        llm_config_name: str,
-        agent_count: Union[int, str] = 1):
-    basic_module = BasicModule(module_run, llm_config_name, agent_count)
+def run(module_run: AgentRunInput):
+    basic_module = BasicModule(module_run)
     method = getattr(basic_module, module_run.inputs.func_name, None)
     if method is None:
         raise ValueError(f"Method '{module_run.inputs.func_name}' not found in BasicModule")
-
     return method(module_run.inputs.func_input_data)
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Run agent simulations with custom questions and options.')
+    parser.add_argument('--question', type=str, required=True, help='The question to ask the agents.')
+    parser.add_argument('--options', type=str, required=True, help='Comma-separated options for the question (e.g., "Yes,No,Undecided").')
+    parser.add_argument('--llm_config_name', type=str, default='model_2', help='The LLM configuration name to use.')
+    parser.add_argument('--agent_count', type=int, default=1, help='The number of agents to simulate.')
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    import argparse
-    import json
-    from naptha_sdk.client.naptha import Naptha
-    from naptha_sdk.configs import load_agent_deployments
-
-    TOTAL_AGENTS = 3505  # Total number of available agents
-
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Run agent simulations')
-    parser.add_argument('command', choices=['simulate'], help='Command to execute')
-    parser.add_argument('-p', '--params', nargs='+', help='Parameters in format key=value', required=True)
-    parser.add_argument('--llm', default='model_2', help='LLM config to use')
-    parser.add_argument('--show-explanations', action='store_true', help='Show individual agent explanations')
-    parser.add_argument('--raw-output', action='store_true', help='Show raw response object without formatting')
-
-    args = parser.parse_args()
-
-    # Parse parameters
-    params = {}
-    for param in args.params:
-        key, value = param.split('=', 1)
-        # Remove any surrounding quotes
-        value = value.strip('\'"')
-        params[key] = value
-
-    # Required parameters
-    required_params = ['prompt', 'question', 'type', 'agents']
-    for param in required_params:
-        if param not in params:
-            parser.error(f"Missing required parameter: {param}")
-
-    # Handle categorical type
-    if params['type'] == 'categorical' and 'options' not in params:
-        parser.error("Categorical type requires 'options' parameter (comma-separated list)")
-
-    # Process options if provided
-    if 'options' in params:
-        params['options'] = [opt.strip() for opt in params['options'].split(',')]
-
-    # Convert agents parameter to int
-    if params['agents'].endswith('%'):
-        percentage = float(params['agents'].rstrip('%'))
-        agent_count = int((percentage / 100) * TOTAL_AGENTS)
-        # Ensure at least 1 agent
-        agent_count = max(1, agent_count)
-    else:
-        agent_count = int(params['agents'])
-        # Cap at maximum available agents
-        agent_count = min(agent_count, TOTAL_AGENTS)
-
-    # Set up naptha client
     naptha = Naptha()
-    agent_deployments = load_agent_deployments(
-        "genagents_simulation/configs/agent_deployments.json",
-        load_persona_data=False,
-        load_persona_schema=False,
+
+    # Load agent deployments and parse into AgentDeployment instances
+    deployment_config_path = "genagents_simulation/configs/deployment.json"
+    try:
+        with open(deployment_config_path, "r") as f:
+            deployment_config_data = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"Deployment config file not found at {deployment_config_path}")
+        raise
+
+    # Convert deployment_config_data to AgentDeployment instances
+    deployment_config = []
+    for deployment in deployment_config_data:
+        try:
+            deployment_instance = AgentDeployment(**deployment)
+            deployment_config.append(deployment_instance)
+        except Exception as e:
+            logger.error(f"Failed to parse deployment: {str(e)}")
+
+    if not deployment_config:
+        raise ValueError("No valid deployments found in deployment.json.")
+
+    # Parse command-line arguments
+    args = parse_arguments()
+
+    # Process options into a list
+    options_list = [option.strip() for option in args.options.split(',') if option.strip()]
+    if not options_list:
+        raise ValueError("At least one option must be provided.")
+
+    # Prepare input data
+    input_params = InputSchema(
+        func_name="func",
+        func_input_data={
+            args.question: options_list,
+        },
+        llm_config_name=args.llm_config_name,
+        agent_count=args.agent_count,
     )
 
-    # Prepare input based on type
-    if params['type'] == 'categorical':
-        test_questions = {f"{params['prompt']}\n{params['question']}": params['options']}
-    else:
-        # Handle open-ended questions when implemented
-        raise NotImplementedError("Open-ended questions not yet implemented")
-
-    # Prepare and run simulation
-    input_params = InputSchema(func_name="func", func_input_data=test_questions)
-    agent_run = AgentRunInput(
+    module_run = AgentRunInput(
         inputs=input_params,
-        agent_deployment=agent_deployments[0] if agent_deployments else None,
+        agent_deployment=deployment_config[0],  # Pass a single AgentDeployment instance
         consumer_id=naptha.user.id,
     )
 
-    print(f"\nRunning simulation with {agent_count} agents...")
-    response = run(agent_run, args.llm, agent_count=agent_count)
-
-    # Print results
-    for question, data in response['summary'].items():
-        print(f"\nResults for: {question}")
-        print("\nResponses:")
-        for option, visual in data['visual'].items():
-            print(f"{option}: {visual}")
-        print("\nPercentages:")
-        for option, percentage in data['percentages'].items():
-            print(f"{option}: {percentage}")
-        
-        # Show explanations if requested
-        if args.show_explanations:
-            print("\nExplanations:")
-            for i, explanation in enumerate(data['explanations'], 1):
-                print(f"\nAgent {i}:")
-                print(explanation)
+    response = run(module_run)
+    print("Response: ", response)
