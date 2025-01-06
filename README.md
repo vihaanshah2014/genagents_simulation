@@ -52,7 +52,7 @@ export PATH="$HOME/.local/bin:$PATH"
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/vihaan.shah2014/genagents_simulation
+git clone https://github.com/vihaanshah2014/genagents_simulation
 cd genagents_simulation
 ```
 
